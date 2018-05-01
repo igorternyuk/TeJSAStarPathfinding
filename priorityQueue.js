@@ -20,6 +20,10 @@ class PriorityQueue {
 		return this._heap.length === 0;
 	}
 
+	includes(object){
+		return this._heap.includes(object);
+	}
+
 	push(...values){
 		values.forEach(value => {
 			this._heap.push(value);
@@ -41,6 +45,10 @@ class PriorityQueue {
 
 	peek(){
 		return this._heap[this.top];
+	}
+
+	heapify(){
+		this._siftDown();
 	}
 
 	_greater(i, j){
@@ -68,11 +76,9 @@ class PriorityQueue {
 		let right = this.rightChild(currentIndex);
 		let hasLeftChild = left < this.size();
 		let hasRightChild = right < this.size();
-		//console.log("Sifting down");
-		let counter = 0;  
+
 		while((hasLeftChild && this._greater(left, currentIndex))
 		 || (hasRightChild && this._greater(right, currentIndex))){
-			  ++counter;
 		 	  let maxChild = 0;
 		 	  if(hasLeftChild && hasRightChild){
 		 	  	maxChild = this._greater(left, right) ? left : right;

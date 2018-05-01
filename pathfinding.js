@@ -5,11 +5,12 @@ var colCount = 20;
 var spotWidth, spotHeight;
 
 var grid = createMatrix(rowCount, colCount);
-const openSet = new PriorityQueue((a, b) => a.f > b.f );
+var openSet;
 var closedSet = [];
 
 var start;
 var target;
+var optimalPath = [];
 
 class Spot{
 	constructor(x,y){
@@ -18,17 +19,41 @@ class Spot{
 		this.f = 0;
 		this.cost = 0;
 		this.heuristic = 0;	
-	}
-	
-	toString(){
-		return "f = " + this.f;
+		this.prev = null;
 	}
 
+	getNeighboursMoor(grid){
+		let neighbours = [];
+		for(let dy = -1; dy < 2; ++dy){
+			for(let dx = -1; dx < 2; ++dx){
+				let nx = this.x + dx;
+				let ny = this.y + dy;
+				if(isValidCoordinates(grid, nx, ny)){
+					neighbours.push(grid[ny][nx]);
+				}		
+			}
+		}
+		return neighbours;
+	}
+
+	getNeighboursVonNeumann(grid){
+		let directions = [[1,0],[0,1],[-1,0],[0,-1]];
+		let neighbours = [];
+		for(let i = 0; i < directions.length; ++i){
+			let nx = this.x + directions[i][0];
+			let ny = this.y + directions[i][1];
+			if(isValidCoordinates(grid, nx, ny)){
+				neighbours.push(grid[ny][nx]);
+			}
+		}
+		return neighbours;
+	}
+	
 	render(color){
 		fill(color);
 		noStroke();
-		rect(this.x * spotWidth, this.y * spotHeight,
-		     spotWidth - 1, spotHeight - 1);
+		ellipse(this.x * spotWidth + spotWidth / 2, this.y * spotHeight + spotHeight / 2,
+		     0.8 * spotWidth, 0.8 * spotHeight);
 	}
 
 }
@@ -50,74 +75,85 @@ function setup() {
 
     start = grid[0][0];
     target = grid[rowCount - 1][colCount - 1];
-
+	openSet = new PriorityQueue((a, b) => a.f < b.f );
     openSet.push(start);
-  
-    const queue = new PriorityQueue((a, b) => a.f > b.f );
+}
 
-  	for(let i = 0; i < 100; i += 5){
-  		spot = new Spot(0,0);
-  		spot.f = i + floor(random(5,20));
-  		queue.push(spot);
-  	}
-	
-	//queue.push(10, 20, 30, 40, 50, 60, 70, 80, 90, 100);
-	console.log('Top:', queue.peek()); //=> 114
-	console.log('Size:', queue.size()); //=> 8
-	console.log('isEmpty:', queue.isEmpty()); //=> false
-	console.log('Contents:');
-	//queue.write();
-	//console.log('pop:');
-	while (!queue.isEmpty()) {
-	  console.log(queue.pop()); //=> 40,
-	  //console.log('After popping:');
-	  //queue.write();
+function restoreOptimalPath(current){
+	optimalPath = [];
+	let curr = current;
+	while(curr != null){
+		optimalPath.push(curr);
+		curr = curr.prev;
 	}
 }
 
 //main loop
 function draw() {
 	background(0);
-	if(openSet.length > 0){
+
+	if(!openSet.isEmpty()){
+		let current = openSet.pop();
+
+		if(current === target){
+			console.log("Done!");
+			//Restore the optimal path
+			restoreOptimalPath(current);
+			console.log("optimalPath.length = " + optimalPath.length);
+			noLoop();
+		}
+
+		closedSet.push(current);
+
+		let neighbours = current.getNeighboursVonNeumann(grid);
+		//console.log("neighbours.length = " + neighbours.length);
+		neighbours.forEach(neighbour => {
+			if(!closedSet.includes(neighbour)){
+				let tmpG = current.cost + 1;
+				if(openSet.includes(neighbour)){
+					if(tmpG < neighbour.cost){
+						neighbour.cost = tmpG;
+					}
+				} else {
+					neighbour.cost = tmpG;
+					openSet.push(neighbour);
+				}
+				neighbour.heuristic = heuristicFunc(neighbour, target);
+				neighbour.f = neighbour.cost + neighbour.heuristic;
+				neighbour.prev = current;
+			}
+
+		});
+
+		restoreOptimalPath(current);
+		openSet.heapify();
 
 	} else {
 
 	}
 
+	
+	//Rendering
 	for(let y = 0; y < grid.length; ++y){
 	  	for(let x = 0; x < grid[y].length; ++x){
-	  		grid[y][x].render(color(255));
+	  		if(openSet.includes(grid[y][x])){
+	  			grid[y][x].render(color(0,230,0));
+	  		} else if(closedSet.includes(grid[y][x])){
+  				grid[y][x].render(color(220,0,0));
+	  		} else {
+	  			grid[y][x].render(color(255));
+	  		}
+	  		
 	  	}
   	}
 
-  	for(let i = 0; i < openSet.length; ++i){
-  		openSet[i].render(color(0,200,0));
-  	}
-
-  	for(let i = 0; i < closedSet.length; ++i){
-  		closedSet[i].render(color(220,20,0));
-  	}
-
-  	/*
-
-  	*/
-
-  	/*
-var a = ["a", "b", "c"];
-a.forEach(function(entry) {
-    console.log(entry);
-});
-
-function sortByKey(array, key) {
-    return array.sort(function(a, b) {
-        var x = a[key]; var y = b[key];
-        return ((x < y) ? -1 : ((x > y) ? 1 : 0));
-    });
+  	optimalPath.forEach(spot => {
+  		spot.render(color("#55aadd"));
+  	});
 }
 
-people = sortByKey(people, 'name');
-  	*/
-
+function heuristicFunc(start, target){
+	return dist(start.x, start.y, target.x, target.y);
 }
 
 function createMatrix(rows, cols){
@@ -126,6 +162,11 @@ function createMatrix(rows, cols){
 		grid[i] = new Array(cols);
 	}
 	return grid;
+}
+
+function isValidCoordinates(grid, x, y){
+	return y >= 0 && y < grid.length && x >= 0
+	 && x < grid[y].length;
 }
 
 
