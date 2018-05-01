@@ -60,7 +60,6 @@ class PriorityQueue {
 	}
 
 	_siftUp(){
-		console.log("Sifting up");
 		let currentIndex = this.size() - 1;
 		let parentIndex = this.parent(currentIndex);
 		while(currentIndex > this.top && this._greater(currentIndex, parentIndex)){
